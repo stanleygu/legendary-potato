@@ -94,10 +94,11 @@
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex justify-center space-x-2 sm:space-x-4">
-            <button id="shuffle-button" class="px-4 py-2 sm:px-6 sm:py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full font-semibold shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition">Shuffle</button>
-            <button id="deselect-button" class="px-4 py-2 sm:px-6 sm:py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full font-semibold shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition">Deselect all</button>
-            <button id="submit-button" class="px-4 py-2 sm:px-6 sm:py-3 bg-blue-500 text-white rounded-full font-semibold shadow-sm hover:bg-blue-600 transition disabled:bg-gray-400 disabled:cursor-not-allowed">Submit</button>
+        <div class="flex justify-center space-x-2 sm:space-x-4 flex-wrap gap-2">
+            <button id="shuffle-button" class="px-4 py-2 sm:px-5 sm:py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full font-semibold shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition">Shuffle</button>
+            <button id="deselect-button" class="px-4 py-2 sm:px-5 sm:py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full font-semibold shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition">Deselect All</button>
+            <button id="skip-button" class="px-4 py-2 sm:px-5 sm:py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full font-semibold shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition">Skip</button>
+            <button id="submit-button" class="px-4 py-2 sm:px-5 sm:py-2 bg-blue-500 text-white rounded-full font-semibold shadow-sm hover:bg-blue-600 transition disabled:bg-gray-400 disabled:cursor-not-allowed">Submit</button>
         </div>
     </div>
 
@@ -164,6 +165,7 @@
             const submitButton = document.getElementById('submit-button');
             const shuffleButton = document.getElementById('shuffle-button');
             const deselectButton = document.getElementById('deselect-button');
+            const skipButton = document.getElementById('skip-button');
             const mistakesTracker = document.getElementById('mistakes-tracker').children;
             const solvedContainer = document.getElementById('solved-container');
             const messageText = document.getElementById('message-text');
@@ -172,7 +174,7 @@
             // --- INITIALIZATION ---
             function initGame() {
                 // Select a new, unplayed puzzle
-                if (playedPuzzleIndices.length === puzzles.length) {
+                if (playedPuzzleIndices.length >= puzzles.length) {
                     playedPuzzleIndices = []; // Reset if all puzzles have been played
                 }
                 let puzzleIndex;
@@ -275,6 +277,8 @@
 
             submitButton.addEventListener('click', handleSubmit);
             
+            skipButton.addEventListener('click', initGame);
+
             document.getElementById('play-again-button').addEventListener('click', initGame);
 
             // --- GAME LOGIC ---
