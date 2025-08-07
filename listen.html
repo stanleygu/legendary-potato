@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playlist Listener</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+
+    <div class="container mx-auto max-w-2xl p-4 sm:p-6">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl sm:text-4xl font-bold">Playlist Listener</h1>
+            <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">Add website URLs to create a podcast playlist.</p>
+        </header>
+
+        <!-- URL Input Form -->
+        <div class="mb-6">
+            <div class="flex gap-2">
+                <input type="url" id="url-input" placeholder="https://example.com" class="flex-grow p-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <button id="add-url-button" class="px-5 py-3 bg-blue-500 text-white rounded-lg font-semibold shadow-sm hover:bg-blue-600 transition">Add</button>
+            </div>
+        </div>
+
+        <!-- Playlist Display -->
+        <div id="playlist-container" class="mb-6 space-y-2">
+            <!-- Playlist items will be dynamically inserted here -->
+        </div>
+
+        <!-- Media Controls -->
+        <div id="media-player" class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+            <div class="flex items-center">
+                <div class="flex-grow">
+                    <h2 id="current-track-title" class="font-bold text-lg">Nothing Playing</h2>
+                    <p id="current-track-url" class="text-sm text-gray-500 dark:text-gray-400">Add a URL to get started</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="prev-button" aria-label="Previous track" class="p-3 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M8.445 14.832A1 1 0 0010 14.03V5.97a1 1 0 00-1.555-.832L4.12 9.168a1 1 0 000 1.664l4.325 4.03zM15.88 9.168a1 1 0 000 1.664l4.324 4.03a1 1 0 001.555-.832V5.97a1 1 0 00-1.555-.832L15.88 9.168z"></path></svg>
+                    </button>
+                    <button id="play-pause-button" aria-label="Play" class="p-4 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition">
+                        <svg class="w-6 h-6" id="play-icon" fill="currentColor" viewBox="0 0 20 20"><path d="M4.018 15.592A1 1 0 005 14.592V5.408a1 1 0 00-1.474-.878l-8.43 5.058a1 1 0 000 1.756l8.43 5.058a1 1 0 00.492.13z"></path></svg>
+                        <svg class="w-6 h-6 hidden" id="pause-icon" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"></path></svg>
+                    </button>
+                    <button id="next-button" aria-label="Next track" class="p-3 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M11.555 5.168A1 1 0 0010 5.97v8.06a1 1 0 001.555.832l4.325-4.03a1 1 0 000-1.664L11.555 5.168zM4.12 5.168A1 1 0 002.565 5.97v8.06a1 1 0 001.555.832l4.324-4.03a1 1 0 000-1.664L4.12 5.168z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+         <!-- Export Playlist -->
+        <div class="mt-6 text-center">
+            <button id="export-button" class="px-5 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full font-semibold shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition">Export Playlist</button>
+            <p id="export-link-container" class="mt-2 text-sm hidden">
+                Share this link: <a id="export-link" href="#" class="text-blue-500 hover:underline"></a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM ELEMENTS ---
+            const urlInput = document.getElementById('url-input');
+            const addUrlButton = document.getElementById('add-url-button');
+            const playlistContainer = document.getElementById('playlist-container');
+            const playPauseButton = document.getElementById('play-pause-button');
+            const prevButton = document.getElementById('prev-button');
+            const nextButton = document.getElementById('next-button');
+            const currentTrackTitle = document.getElementById('current-track-title');
+            const currentTrackUrl = document.getElementById('current-track-url');
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+            const exportButton = document.getElementById('export-button');
+            const exportLinkContainer = document.getElementById('export-link-container');
+            const exportLink = document.getElementById('export-link');
+
+            // --- STATE VARIABLES ---
+            let playlist = [];
+            let currentTrackIndex = -1;
+            let isPlaying = false;
+
+            // --- LOCAL STORAGE ---
+            const PLAYLIST_STORAGE_KEY = 'playlistListener.playlist';
+            const STATE_STORAGE_KEY = 'playlistListener.state';
+
+            function loadFromLocalStorage() {
+                const storedPlaylist = localStorage.getItem(PLAYLIST_STORAGE_KEY);
+                if (storedPlaylist) {
+                    try {
+                        playlist = JSON.parse(storedPlaylist);
+                    } catch (e) {
+                        console.error("Error parsing playlist from localStorage", e);
+                        playlist = [];
+                    }
+                }
+                const storedState = localStorage.getItem(STATE_STORAGE_KEY);
+                if (storedState) {
+                    try {
+                        const state = JSON.parse(storedState);
+                        currentTrackIndex = state.currentTrackIndex || -1;
+                        if (currentTrackIndex >= playlist.length) {
+                            currentTrackIndex = -1;
+                        }
+                    } catch (e) {
+                         console.error("Error parsing state from localStorage", e);
+                         currentTrackIndex = -1;
+                    }
+                }
+            }
+
+            function savePlaylist() {
+                localStorage.setItem(PLAYLIST_STORAGE_KEY, JSON.stringify(playlist));
+            }
+
+            function saveState() {
+                localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify({ currentTrackIndex }));
+            }
+
+            // --- PLAYLIST MANAGEMENT ---
+            function addUrlToPlaylist() {
+                const url = urlInput.value.trim();
+                if (url) {
+                    try {
+                        new URL(url);
+                    } catch (_) {
+                        alert("Please enter a valid URL.");
+                        return;
+                    }
+
+                    playlist.push({ url: url, title: 'New Track' }); // Temporary title
+                    urlInput.value = '';
+                    savePlaylist();
+                    renderPlaylist();
+                    if (currentTrackIndex === -1 && playlist.length > 0) {
+                        currentTrackIndex = 0;
+                        saveState();
+                        updatePlayerUI();
+                    }
+                }
+            }
+
+            function removeUrlFromPlaylist(index) {
+                const wasPlaying = isPlaying && currentTrackIndex === index;
+
+                if (index < currentTrackIndex) {
+                    currentTrackIndex--;
+                } else if (index === currentTrackIndex) {
+                    stopPlayback();
+                    currentTrackIndex = -1;
+                }
+
+                playlist.splice(index, 1);
+                savePlaylist();
+                saveState();
+                renderPlaylist();
+                updatePlayerUI();
+
+                if (wasPlaying) {
+                    playNext();
+                }
+            }
+
+            function renderPlaylist() {
+                playlistContainer.innerHTML = '';
+                if (playlist.length === 0) {
+                    playlistContainer.innerHTML = `<p class="text-gray-500 dark:text-gray-400 text-center">Your playlist is empty.</p>`;
+                    return;
+                }
+
+                playlist.forEach((item, index) => {
+                    const playlistItem = document.createElement('div');
+                    playlistItem.className = 'flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition';
+
+                    const title = document.createElement('span');
+                    title.textContent = item.title;
+                    title.className = 'truncate w-3/4';
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remove';
+                    removeButton.className = 'ml-4 px-3 py-1 bg-red-500 text-white rounded-md text-sm font-semibold hover:bg-red-600 transition';
+                    removeButton.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removeUrlFromPlaylist(index);
+                    });
+
+                    const itemContent = document.createElement('div');
+                    itemContent.className = 'flex-grow truncate';
+                    itemContent.appendChild(title);
+
+                    playlistItem.appendChild(itemContent);
+                    playlistItem.appendChild(removeButton);
+
+                    playlistItem.addEventListener('click', () => {
+                        playTrack(index);
+                    });
+
+                    playlistContainer.appendChild(playlistItem);
+                });
+
+                updatePlayerUI();
+            }
+
+            // --- PLAYBACK LOGIC ---
+            function playTrack(index) {
+                if (index < 0 || index >= playlist.length) {
+                    stopPlayback();
+                    return;
+                }
+
+                currentTrackIndex = index;
+                saveState();
+
+                const track = playlist[currentTrackIndex];
+                currentTrackTitle.textContent = 'Loading...';
+                currentTrackUrl.textContent = track.url;
+                updatePlayerUI();
+
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(track.url)}`;
+
+                fetch(proxyUrl)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Failed to fetch content.');
+                        return response.text();
+                    })
+                    .then(html => {
+                        const doc = new DOMParser().parseFromString(html, 'text/html');
+                        const newTitle = doc.title.trim() || track.url;
+                        const textContent = extractMainContent(doc);
+
+                        if (playlist[currentTrackIndex]) {
+                           playlist[currentTrackIndex].title = newTitle;
+                           savePlaylist();
+                           renderPlaylist();
+                        }
+
+                        if (speechSynthesis.speaking) {
+                            speechSynthesis.cancel();
+                        }
+
+                        const utterance = new SpeechSynthesisUtterance(textContent);
+                        utterance.onend = () => { if (isPlaying) playNext(); };
+                        utterance.onerror = (e) => {
+                            console.error("Speech synthesis error:", e);
+                            currentTrackTitle.textContent = 'Error during speech';
+                            if (isPlaying) setTimeout(playNext, 2000);
+                        };
+
+                        speechSynthesis.speak(utterance);
+                        isPlaying = true;
+                        updatePlayPauseIcon();
+                    })
+                    .catch(error => {
+                        console.error("Fetch error:", error);
+                        currentTrackTitle.textContent = 'Failed to load content';
+                        currentTrackUrl.textContent = track.url;
+                        isPlaying = false;
+                        updatePlayPauseIcon();
+                    });
+            }
+
+            function togglePlayPause() {
+                if (!isPlaying) {
+                    if (speechSynthesis.paused) {
+                        speechSynthesis.resume();
+                        isPlaying = true;
+                    } else {
+                        if (currentTrackIndex === -1 && playlist.length > 0) {
+                            currentTrackIndex = 0;
+                        }
+                        playTrack(currentTrackIndex);
+                    }
+                } else {
+                    speechSynthesis.pause();
+                    isPlaying = false;
+                }
+                updatePlayPauseIcon();
+            }
+
+            function playNext() {
+                const nextIndex = currentTrackIndex + 1;
+                if (nextIndex < playlist.length) {
+                    playTrack(nextIndex);
+                } else {
+                    stopPlayback();
+                }
+            }
+
+            function playPrev() {
+                const prevIndex = currentTrackIndex - 1;
+                if (prevIndex >= 0) {
+                    playTrack(prevIndex);
+                }
+            }
+
+            function stopPlayback() {
+                if (speechSynthesis.speaking) {
+                    speechSynthesis.cancel();
+                }
+                isPlaying = false;
+                updatePlayPauseIcon();
+            }
+
+            function extractMainContent(doc) {
+                doc.querySelectorAll('script, style, nav, header, footer, aside, .noprint, .ad, [aria-hidden="true"]').forEach(el => el.remove());
+                let mainContent = doc.querySelector('article, main, [role="main"]') || doc.body;
+                let text = mainContent.innerText || "";
+                return (doc.title + ". " + text.replace(/\s\s+/g, ' ').trim());
+            }
+
+            // --- UI UPDATES ---
+            function updatePlayPauseIcon() {
+                playIcon.classList.toggle('hidden', isPlaying);
+                pauseIcon.classList.toggle('hidden', !isPlaying);
+                playPauseButton.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+            }
+
+            function updatePlayerUI() {
+                if (currentTrackIndex !== -1 && playlist[currentTrackIndex]) {
+                    const track = playlist[currentTrackIndex];
+                    currentTrackTitle.textContent = track.title;
+                    currentTrackUrl.textContent = track.url;
+                } else {
+                    currentTrackTitle.textContent = 'Nothing Playing';
+                    currentTrackUrl.textContent = 'Add a URL to get started';
+                }
+
+                document.querySelectorAll('#playlist-container > div').forEach((item, index) => {
+                    item.classList.toggle('bg-blue-100', index === currentTrackIndex);
+                    item.classList.toggle('dark:bg-blue-900', index === currentTrackIndex);
+                });
+            }
+
+            // --- EXPORT/IMPORT LOGIC ---
+            function handleExport() {
+                if (playlist.length === 0) {
+                    alert("Your playlist is empty. Add some URLs first!");
+                    return;
+                }
+
+                const urls = playlist.map(item => item.url);
+                const jsonString = JSON.stringify(urls);
+                // btoa is safe for UTF-8 after this encoding
+                const base64String = btoa(unescape(encodeURIComponent(jsonString)));
+
+                const shareUrl = `${window.location.origin}${window.location.pathname}?playlist=${base64String}`;
+
+                exportLink.href = shareUrl;
+                exportLink.textContent = 'Click to copy link';
+                exportLinkContainer.classList.remove('hidden');
+
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    exportLink.textContent = 'Link copied!';
+                    setTimeout(() => {
+                       exportLink.textContent = 'Click to copy link';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy link: ', err);
+                });
+            }
+
+            // --- INITIALIZATION ---
+            function init() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const playlistData = urlParams.get('playlist');
+
+                if (playlistData) {
+                    try {
+                        // Decode base64 and then URI components
+                        const jsonString = decodeURIComponent(escape(atob(playlistData)));
+                        const urls = JSON.parse(jsonString);
+
+                        if (Array.isArray(urls) && urls.every(item => typeof item === 'string')) {
+                            playlist = urls.map(url => ({ url: url, title: 'New Track' }));
+                            currentTrackIndex = playlist.length > 0 ? 0 : -1;
+                            savePlaylist();
+                            saveState();
+                            // Clean the URL in the browser history
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        }
+                    } catch (error) {
+                        console.error("Failed to import playlist from URL:", error);
+                        alert("Could not load playlist from the link. It might be corrupted.");
+                        loadFromLocalStorage(); // Fallback to local storage
+                    }
+                } else {
+                    loadFromLocalStorage();
+                }
+
+                renderPlaylist();
+                updatePlayerUI();
+                updatePlayPauseIcon();
+            }
+
+            // --- EVENT LISTENERS ---
+            addUrlButton.addEventListener('click', addUrlToPlaylist);
+            urlInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addUrlToPlaylist(); });
+            playPauseButton.addEventListener('click', togglePlayPause);
+            nextButton.addEventListener('click', playNext);
+            prevButton.addEventListener('click', playPrev);
+            exportButton.addEventListener('click', handleExport);
+            window.addEventListener('beforeunload', () => {
+                if (speechSynthesis.speaking) {
+                    speechSynthesis.cancel();
+                }
+            });
+
+            init();
+        });
+    </script>
+
+</body>
+</html>
